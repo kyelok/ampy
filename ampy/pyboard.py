@@ -266,6 +266,27 @@ class Pyboard:
         t = str(self.eval('pyb.RTC().datetime()'), encoding='utf8')[1:-1].split(', ')
         return int(t[4]) * 3600 + int(t[5]) * 60 + int(t[6])
 
+
+    def follow_live(self, timeout=10, data_consumer=stdout_write_bytes):
+        run = True
+        while (run):
+            # wait for normal output
+            data = self.read_until(1, b'done', timeout=timeout, data_consumer=data_consumer)
+            if data.endswith(b'done'):
+                run = False
+        #data = data[:-1]
+
+    def execfile_live(self, filename):
+        # read the file into buffer
+        with open(filename, 'rb') as f:
+            pyfile = f.read()
+
+        # write the buffer to repl
+        self.exec_raw_no_follow(pyfile)
+
+        # keep reading
+        self.follow_live()
+
 # in Python2 exec is a keyword so one must use "exec_"
 # but for Python3 we want to provide the nicer version "exec"
 setattr(Pyboard, "exec", Pyboard.exec_)
@@ -275,6 +296,13 @@ def execfile(filename, device='/dev/ttyACM0', baudrate=115200, user='micro', pas
     pyb.enter_raw_repl()
     output = pyb.execfile(filename)
     stdout_write_bytes(output)
+    pyb.exit_raw_repl()
+    pyb.close()
+
+def execfile_live(filename, device='/dev/ttyUSB0', baudrate=115200, user='micro', password='python'):
+    pyb = Pyboard(device, baudrate, user, password)
+    pyb.enter_raw_repl()
+    pyb.execfile_live(filename)    
     pyb.exit_raw_repl()
     pyb.close()
 
